@@ -542,7 +542,8 @@ namespace AElf.Contracts.TokenSwapContract
                         OriginAmount = amountInStr,
                         ReceiverAddress = DefaultSenderAddress,
                         SwapId = swapId,
-                        UniqueId = HashHelper.ComputeFrom(i)
+                        UniqueId = HashHelper.ComputeFrom(i),
+                        LastLeafIndex = 1023
                     };
 
                     var transactionResult = (await TokenSwapContractStub.SwapToken.SendAsync(swapTokenInput))
