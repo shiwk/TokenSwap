@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AElf.ContractTestBase.ContractTestKit;
 using AElf.Types;
@@ -104,14 +105,14 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     MerkleTreeRoot = HashHelper.ComputeFrom("MerkleTreeRoot"),
                     RecorderId = 0
                 });
-            
+
             {
                 var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                 {
                     RecorderId = 0,
                     LastLeafIndex = 0
                 });
-                
+
                 tree.FirstLeafIndex.ShouldBe(0);
                 tree.LastLeafIndex.ShouldBe(0);
                 tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
@@ -141,7 +142,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     RecorderId = 0,
                     LastLeafIndex = 1
                 });
-                
+
                 tree.FirstLeafIndex.ShouldBe(0);
                 tree.LastLeafIndex.ShouldBe(1);
                 tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
@@ -155,7 +156,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     });
                 lastRecordedLeafIndex.Value.ShouldBe(1);
             }
-            
+
             // tree 0, 1, 14
             await MerkleTreeRecorderContractStub.RecordMerkleTree.SendAsync(
                 new RecordMerkleTreeInput
@@ -179,98 +180,118 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
 
             for (var i = 2; i < 14; i++)
             {
-                var error = await MerkleTreeRecorderContractStub.GetMerkleTree.CallWithExceptionAsync(new GetMerkleTreeInput
-                {
-                    RecorderId = 0,
-                    LastLeafIndex = i
-                });
-                
+                var error = await MerkleTreeRecorderContractStub.GetMerkleTree.CallWithExceptionAsync(
+                    new GetMerkleTreeInput
+                    {
+                        RecorderId = 0,
+                        LastLeafIndex = i
+                    });
+
                 error.Value.ShouldContain("Tree not recorded.");
             }
-            
+
             {
                 var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                 {
                     RecorderId = 0,
                     LastLeafIndex = 14
                 });
-                
+
                 tree.FirstLeafIndex.ShouldBe(0);
                 tree.LastLeafIndex.ShouldBe(14);
                 tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
             }
-            
+
             // tree {0, 1, 14, 15}
-            await MerkleTreeRecorderContractStub.RecordMerkleTree.SendAsync(
-                new RecordMerkleTreeInput
-                {
-                    LastLeafIndex = 15,
-                    MerkleTreeRoot = HashHelper.ComputeFrom("MerkleTreeRoot"),
-                    RecorderId = 0
-                });
-
-            for (var i = 0; i < 16; i++)
             {
-                var leafLocatedTree = await MerkleTreeRecorderContractStub.GetLeafLocatedMerkleTree.CallAsync(
-                    new GetLeafLocatedMerkleTreeInput
+                await MerkleTreeRecorderContractStub.RecordMerkleTree.SendAsync(
+                    new RecordMerkleTreeInput
                     {
-                        RecorderId = 0,
-                        LeafIndex = i
-                    });
-                leafLocatedTree.FirstLeafIndex.ShouldBe(0);
-                leafLocatedTree.LastLeafIndex.ShouldBe(15);
-            }
-            
-            for (var i = 0; i < 16; i++)
-            {
-                var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
-                {
-                    RecorderId = 0,
-                    LastLeafIndex = 14
-                });
-                
-                tree.FirstLeafIndex.ShouldBe(0);
-                tree.LastLeafIndex.ShouldBe(15);
-                tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
-            }
-
-            {
-                var leafLocatedTree = await MerkleTreeRecorderContractStub.GetLeafLocatedMerkleTree.CallWithExceptionAsync(
-                    new GetLeafLocatedMerkleTreeInput
-                    {
-                        RecorderId = 1,
-                        LeafIndex = 15
-                    });
-                leafLocatedTree.Value.ShouldContain("Not recorded yet.");
-            }
-            
-            {
-                var leafLocatedTree = await MerkleTreeRecorderContractStub.GetLeafLocatedMerkleTree.CallWithExceptionAsync(
-                    new GetLeafLocatedMerkleTreeInput
-                    {
-                        RecorderId = 0,
-                        LeafIndex = 16
-                    });
-                leafLocatedTree.Value.ShouldContain("Not recorded yet.");
-            }
-
-
-            {
-                var lastRecordedLeafIndex = await MerkleTreeRecorderContractStub.GetLastRecordedLeafIndex.CallAsync(
-                    new RecorderIdInput
-                    {
+                        LastLeafIndex = 15,
+                        MerkleTreeRoot = HashHelper.ComputeFrom("MerkleTreeRoot"),
                         RecorderId = 0
                     });
-                lastRecordedLeafIndex.Value.ShouldBe(15);
-            }
 
-            {
-                var satisfiedTreeCount = await MerkleTreeRecorderContractStub.GetSatisfiedTreeCount.CallAsync(
-                    new RecorderIdInput
+
+                for (var i = 0; i < 16; i++)
+                {
+                    var leafLocatedTree = await MerkleTreeRecorderContractStub.GetLeafLocatedMerkleTree.CallAsync(
+                        new GetLeafLocatedMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LeafIndex = i
+                        });
+                    leafLocatedTree.FirstLeafIndex.ShouldBe(0);
+                    leafLocatedTree.LastLeafIndex.ShouldBe(15);
+                }
+
+                foreach (var i in new[] {0, 1, 14})
+                {
+                    var leafLocatedTree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(
+                        new GetMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LastLeafIndex = i
+                        });
+                    leafLocatedTree.FirstLeafIndex.ShouldBe(0);
+                    leafLocatedTree.LastLeafIndex.ShouldBe(i);
+                }
+
+                for (var i = 0; i < 16; i++)
+                {
+                    if (new[] {0, 1, 14}.Contains(i))
+                        continue;
+                    var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                     {
-                        RecorderId = 0
+                        RecorderId = 0,
+                        LastLeafIndex = i
                     });
-                satisfiedTreeCount.Value.ShouldBe(1);
+
+                    tree.FirstLeafIndex.ShouldBe(0);
+                    tree.LastLeafIndex.ShouldBe(15);
+                    tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
+                }
+
+                {
+                    var leafLocatedTree =
+                        await MerkleTreeRecorderContractStub.GetLeafLocatedMerkleTree.CallWithExceptionAsync(
+                            new GetLeafLocatedMerkleTreeInput
+                            {
+                                RecorderId = 1,
+                                LeafIndex = 15
+                            });
+                    leafLocatedTree.Value.ShouldContain("Not recorded yet.");
+                }
+
+                {
+                    var leafLocatedTree =
+                        await MerkleTreeRecorderContractStub.GetLeafLocatedMerkleTree.CallWithExceptionAsync(
+                            new GetLeafLocatedMerkleTreeInput
+                            {
+                                RecorderId = 0,
+                                LeafIndex = 16
+                            });
+                    leafLocatedTree.Value.ShouldContain("Not recorded yet.");
+                }
+
+
+                {
+                    var lastRecordedLeafIndex = await MerkleTreeRecorderContractStub.GetLastRecordedLeafIndex.CallAsync(
+                        new RecorderIdInput
+                        {
+                            RecorderId = 0
+                        });
+                    lastRecordedLeafIndex.Value.ShouldBe(15);
+                }
+
+                {
+                    var satisfiedTreeCount = await MerkleTreeRecorderContractStub.GetSatisfiedTreeCount.CallAsync(
+                        new RecorderIdInput
+                        {
+                            RecorderId = 0
+                        });
+                    satisfiedTreeCount.Value.ShouldBe(1);
+                }
             }
 
             // tree {0, 1, 14, 15}, 16
@@ -305,9 +326,23 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     leafLocatedTree.FirstLeafIndex.ShouldBe(16);
                     leafLocatedTree.LastLeafIndex.ShouldBe(16);
                 }
+                
+                foreach (var i in new[] {1, 14})
+                {
+                    var leafLocatedTree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(
+                        new GetMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LastLeafIndex = i
+                        });
+                    leafLocatedTree.FirstLeafIndex.ShouldBe(0);
+                    leafLocatedTree.LastLeafIndex.ShouldBe(i);
+                }
 
                 for (var i = 0; i < 16; i++)
                 {
+                    if (new[] {1, 14}.Contains(i))
+                        continue;
                     var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                     {
                         RecorderId = 0,
@@ -349,7 +384,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     satisfiedTreeCount.Value.ShouldBe(1);
                 }
             }
-            
+
             // tree {0, 1, 14, 15}, 16, 30
 
             {
@@ -394,8 +429,23 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     lastRecordedLeafIndex.Value.ShouldBe(30);
                 }
                 
+                foreach (var i in new[] {1})
+                {
+                    var leafLocatedTree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(
+                        new GetMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LastLeafIndex = i
+                        });
+                    leafLocatedTree.FirstLeafIndex.ShouldBe(0);
+                    leafLocatedTree.LastLeafIndex.ShouldBe(i);
+                }
+
                 for (var i = 0; i < 16; i++)
                 {
+                    if (new[] {1}.Contains(i))
+                        continue;
+                    
                     var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                     {
                         RecorderId = 0,
@@ -406,7 +456,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     tree.LastLeafIndex.ShouldBe(15);
                     tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
                 }
-                
+
                 {
                     var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                     {
@@ -418,15 +468,16 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     tree.LastLeafIndex.ShouldBe(16);
                     tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
                 }
-                
+
                 for (var i = 17; i < 30; i++)
                 {
-                    var error = await MerkleTreeRecorderContractStub.GetMerkleTree.CallWithExceptionAsync(new GetMerkleTreeInput
-                    {
-                        RecorderId = 0,
-                        LastLeafIndex = i
-                    });
-                    
+                    var error = await MerkleTreeRecorderContractStub.GetMerkleTree.CallWithExceptionAsync(
+                        new GetMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LastLeafIndex = i
+                        });
+
                     error.Value.ShouldContain("Tree not recorded.");
                 }
 
@@ -451,7 +502,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     satisfiedTreeCount.Value.ShouldBe(1);
                 }
             }
-            
+
             // tree {0, 1, 14, 15}, {16, 30, 31}
             {
                 await MerkleTreeRecorderContractStub.RecordMerkleTree.SendAsync(
@@ -485,9 +536,23 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     leafLocatedTree.FirstLeafIndex.ShouldBe(16);
                     leafLocatedTree.LastLeafIndex.ShouldBe(31);
                 }
-                
+
+                foreach (var i in new[] {1})
+                {
+                    var leafLocatedTree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(
+                        new GetMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LastLeafIndex = i
+                        });
+                    leafLocatedTree.FirstLeafIndex.ShouldBe(0);
+                    leafLocatedTree.LastLeafIndex.ShouldBe(i);
+                }
+
                 for (var i = 0; i < 16; i++)
                 {
+                    if (new[] {1}.Contains(i))
+                        continue;
                     var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                     {
                         RecorderId = 0,
@@ -498,15 +563,29 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     tree.LastLeafIndex.ShouldBe(15);
                     tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
                 }
+
+                foreach (var i in new[] {16, 30})
+                {
+                    var leafLocatedTree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(
+                        new GetMerkleTreeInput
+                        {
+                            RecorderId = 0,
+                            LastLeafIndex = i
+                        });
+                    leafLocatedTree.FirstLeafIndex.ShouldBe(16);
+                    leafLocatedTree.LastLeafIndex.ShouldBe(i);
+                }
                 
                 for (var i = 16; i < 32; i++)
                 {
+                    if (new[] {16, 30}.Contains(i))
+                        continue;
                     var tree = await MerkleTreeRecorderContractStub.GetMerkleTree.CallAsync(new GetMerkleTreeInput
                     {
                         RecorderId = 0,
                         LastLeafIndex = i
                     });
-                    
+
                     tree.FirstLeafIndex.ShouldBe(16);
                     tree.LastLeafIndex.ShouldBe(31);
                     tree.MerkleTreeRoot.ShouldBe(HashHelper.ComputeFrom("MerkleTreeRoot"));
@@ -572,7 +651,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     });
                 record.TransactionResult.Error.ShouldContain("Satisfied MerkleTree absent.");
             }
-            
+
             {
                 var record = await MerkleTreeRecorderContractStub.RecordMerkleTree.SendWithExceptionAsync(
                     new RecordMerkleTreeInput
@@ -590,7 +669,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                 LastLeafIndex = 14,
                 MerkleTreeRoot = HashHelper.ComputeFrom("MerkleTreeRoot")
             });
-            
+
             {
                 var record = await MerkleTreeRecorderContractStub.RecordMerkleTree.SendWithExceptionAsync(
                     new RecordMerkleTreeInput
@@ -601,14 +680,14 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                     });
                 record.TransactionResult.Error.ShouldContain("Unable to record the tree with 16");
             }
-            
+
             await MerkleTreeRecorderContractStub.RecordMerkleTree.SendAsync(new RecordMerkleTreeInput
             {
                 RecorderId = 0,
                 LastLeafIndex = 15,
                 MerkleTreeRoot = HashHelper.ComputeFrom("MerkleTreeRoot")
             });
-            
+
             {
                 var record = await MerkleTreeRecorderContractStub.RecordMerkleTree.SendWithExceptionAsync(
                     new RecordMerkleTreeInput
@@ -620,7 +699,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
                 record.TransactionResult.Error.ShouldContain("It is not a new tree.");
             }
 
-            
+
             {
                 var record = await MerkleTreeRecorderContractStub.RecordMerkleTree.SendWithExceptionAsync(
                     new RecordMerkleTreeInput
@@ -643,7 +722,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
             }
 
             var binaryMerkleTree = BinaryMerkleTree.FromLeafNodes(list);
-            
+
             await CreateRecorderAsync(DefaultAccount.Address, 1024);
             await MerkleTreeRecorderContractStub.RecordMerkleTree.SendAsync(new RecordMerkleTreeInput
             {

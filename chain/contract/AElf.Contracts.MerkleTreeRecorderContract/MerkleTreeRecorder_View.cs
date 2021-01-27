@@ -27,7 +27,7 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
             {
                 FirstLeafIndex = merkleTree.FirstLeafIndex,
                 LastLeafIndex = merkleTree.LastLeafIndex,
-                TreeIndex = merkleTree.LastLeafIndex
+                MerkleTreeRoot = merkleTree.MerkleTreeRoot
             };
         }
 
@@ -42,12 +42,15 @@ namespace AElf.Contracts.MerkleTreeRecorderContract
             var recorder = State.Recorder[input.RecorderId];
             var satisfiedMerkleTreeIndex = lastLeafIndex.Div(recorder.MaximalLeafCount);
 
+            var unSatisfied = State.UnSatisfiedMerkleTrees[input.RecorderId][lastLeafIndex % recorder.MaximalLeafCount];
+
+            if (unSatisfied != null && unSatisfied.LastLeafIndex == lastLeafIndex)
+                return unSatisfied;
+            
             if (satisfiedMerkleTreeIndex < State.SatisfiedMerkleTreeCount[input.RecorderId])
                 return State.SatisfiedMerkleTrees[input.RecorderId][satisfiedMerkleTreeIndex];
 
-            var unSatisfied = State.UnSatisfiedMerkleTrees[input.RecorderId][lastLeafIndex % recorder.MaximalLeafCount];
-            Assert(unSatisfied != null && unSatisfied.LastLeafIndex == lastLeafIndex,
-                "Tree not recorded.");
+            Assert(false, "Tree not recorded.");
             return unSatisfied;
         }
 
